@@ -1,0 +1,24 @@
+// AWK
+/*
+    - Used to analyze, filter, and manipulate structured data such as (logs, csv files and command output)
+
+    --> awk [options] 'condition {action}' input-file > output-file
+
+    --> awk -F ',' '{print $1}' returns_agadir.csv
+        -F: for tell awk to work with commas, defautl is space
+        {print $1}: print first column
+
+    --> Special variables: NR, NF, FS:
+        NR: number of current record
+        awk '{ print NR, $0 }' students.txt
+
+    --> Define Varaible
+        aw
+*/
+
+
+// SED
+/*
+    - Used to Replace Text in File
+    --> sed [OPTIONS] 'SCRIPT' [INPUTFILE...]
+*/
