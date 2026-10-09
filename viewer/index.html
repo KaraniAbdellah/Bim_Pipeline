@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Returns Report</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 18px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #222;
+      background: #f7f7f7;
+    }
+    main { max-width: 1000px; margin: 0 auto; }
+    h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; }
+    .subtitle { margin: 0 0 24px; color: #666; font-size: 14px; }
+    .panel {
+      padding: 20px;
+      background: #fff;
+      border: 1px solid #e3e3e3;
+      border-radius: 8px;
+      margin-bottom: 18px;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    label { display: block; margin-bottom: 7px; font-size: 13px; color: #444; }
+    input, select, button {
+      width: 100%;
+      min-height: 40px;
+      padding: 9px 10px;
+      border: 1px solid #d4d4d4;
+      border-radius: 5px;
+      background: #fff;
+      color: #222;
+      font: inherit;
+    }
+    button { cursor: pointer; }
+    button:hover { background: #f2f2f2; }
+    .filter-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+    .filter-actions button { width: auto; min-width: 100px; }
+    .summary { display: flex; gap: 32px; flex-wrap: wrap; }
+    .metric-label { color: #666; font-size: 13px; margin-bottom: 5px; }
+    .metric-value { font-size: 24px; font-weight: 600; }
+    .table-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+    h2 { font-size: 17px; margin: 0; font-weight: 600; }
+    #resultCount { color: #666; font-size: 13px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid #e9e9e9; text-align: left; }
+    th { background: #f6f6f6; color: #444; font-weight: 600; }
+    tbody tr:hover { background: #fafafa; }
+    td:last-child, th:last-child { text-align: right; }
+    .message { color: #666; font-size: 14px; padding: 18px 0 4px; }
+    @media (max-width: 650px) {
+      body { padding: 22px 12px; }
+      .filters { grid-template-columns: 1fr; }
+      .panel { padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Returns Report</h1>
+    <p class="subtitle">View and filter return records by date, city, and category.</p>
+
+    <section class="panel" aria-label="Filters">
+      <div class="filters">
+        <div>
+          <label for="dateFilter">Date</label>
+          <input id="dateFilter" type="date">
+        </div>
+        <div>
+          <label for="cityFilter">City</label>
+          <select id="cityFilter"><option value="">All cities</option></select>
+        </div>
+        <div>
+          <label for="reasonFilter">Category</label>
+          <select id="reasonFilter"><option value="">All categories</option></select>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button id="resetButton" type="button">Reset filters</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="summary">
+        <div>
+          <div class="metric-label">Total returns</div>
+          <div class="metric-value" id="totalReturns">—</div>
+        </div>
+        <div>
+          <div class="metric-label">Matching records</div>
+          <div class="metric-value" id="recordCount">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="table-heading">
+        <h2>Return records</h2>
+        <span id="resultCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Date</th><th>City</th><th>Category</th><th>Count</th></tr>
+          </thead>
+          <tbody id="reportBody">
+            <tr><td colspan="5" class="message">Loading report…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p id="status" class="message" role="status"></p>
+    </section>
+  </main>
+
+  <script>
+    const CSV_PATH = "../output/report.csv";
+    let allRows = [];
+
+    // Handles commas inside quoted CSV fields and escaped quote characters.
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      if (!lines.length || !lines[0].trim()) return [];
+      const parseLine = (line) => {
+        const values = [];
+        let value = "", quoted = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (quoted && line[i + 1] === '"') { value += '"'; i++; }
+            else quoted = !quoted;
+          } else if (ch === "," && !quoted) {
+            values.push(value.trim()); value = "";
+          } else value += ch;
+        }
+        values.push(value.trim());
+        return values;
+      };
+      const headers = parseLine(lines.shift()).map(h => h.toLowerCase());
+      return lines.filter(line => line.trim()).map(line => {
+        const values = parseLine(line);
+        return Object.fromEntries(headers.map((header, i) => [header, values[i] ?? ""]));
+      });
+    }
+
+    function fillOptions(id, values, defaultLabel) {
+      const select = document.getElementById(id);
+      select.replaceChildren(new Option(defaultLabel, ""));
+      [...new Set(values.filter(Boolean))].sort().forEach(value => {
+        select.add(new Option(value, value));
+      });
+    }
+
+    function render() {
+      const date = document.getElementById("dateFilter").value;
+      const city = document.getElementById("cityFilter").value;
+      const reason = document.getElementById("reasonFilter").value;
+      const filtered = allRows.filter(row =>
+        (!date || row.date === date) &&
+        (!city || row.city === city) &&
+        (!reason || row.reason === reason)
+      );
+
+      const total = filtered.reduce((sum, row) => sum + (Number(row.count) || 0), 0);
+      document.getElementById("totalReturns").textContent = total.toLocaleString();
+      document.getElementById("recordCount").textContent = filtered.length.toLocaleString();
+      document.getElementById("resultCount").textContent = `${filtered.length} record(s)`;
+
+      const tbody = document.getElementById("reportBody");
+      tbody.replaceChildren();
+      if (!filtered.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 5;
+        td.className = "message";
+        td.textContent = "No records match these filters.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      filtered.forEach(row => {
+        const tr = document.createElement("tr");
+        [row.id, row.date, row.city, row.reason, row.count].forEach((value, index) => {
+          const td = document.createElement("td");
+          td.textContent = value ?? "";
+          if (index === 4) td.textContent = (Number(value) || 0).toLocaleString();
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadReport() {
+      const status = document.getElementById("status");
+      try {
+        const response = await fetch(CSV_PATH, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        allRows = parseCSV(await response.text());
+        if (!allRows.length) throw new Error("The CSV file is empty or has no data rows.");
+        fillOptions("cityFilter", allRows.map(row => row.city), "All cities");
+        fillOptions("reasonFilter", allRows.map(row => row.reason), "All categories");
+        render();
+        status.textContent = "";
+      } catch (error) {
+        status.textContent = `Could not load ${CSV_PATH}. Open this page through a local web server and check that the CSV file exists at that path. (${error.message})`;
+        document.getElementById("reportBody").replaceChildren();
+        document.getElementById("totalReturns").textContent = "—";
+        document.getElementById("recordCount").textContent = "—";
+      }
+    }
+
+    ["dateFilter", "cityFilter", "reasonFilter"].forEach(id =>
+      document.getElementById(id).addEventListener("change", render)
+    );
+    document.getElementById("resetButton").addEventListener("click", () => {
+      document.getElementById("dateFilter").value = "";
+      document.getElementById("cityFilter").value = "";
+      document.getElementById("reasonFilter").value = "";
+      render();
+    });
+
+    loadReport();
+  </script>
+</body>
+</html>

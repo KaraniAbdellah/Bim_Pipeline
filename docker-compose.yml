@@ -2,5 +2,13 @@ services:
   processor:
     build: .
     volumes:
+      - .:/app # Take . folder from my local and make accesibe inside /app in container
 
   viewer:
+    image: nginx:alpine
+    volumes:
+      - ./viewer:/usr/share/nginx/viewer:ro      # index.html lives here
+      - ./output:/usr/share/nginx/output:ro      # processor writes report.csv here also
+      - ./viewer/viewer.conf:/etc/nginx/conf.d/default.conf:ro # nginx config here also
+    ports:
+      - "8080:80" # map port from my machine to nginx server

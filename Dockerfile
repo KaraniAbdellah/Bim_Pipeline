@@ -8,7 +8,7 @@ RUN apk add --no-cache bash gawk coreutils
 WORKDIR /app
 
 # Copy Our shell script to WORKDIR
-COPY returns_processor.sh input/* ./
+COPY returns_processor.sh viewer/*  input/* ./
 
 # Give permission to shell script
 RUN chmod +x returns_processor.sh

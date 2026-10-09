@@ -38,5 +38,57 @@ fi
 
 // Docker Compose
 /*
+Example code:
+services:
+  processor:
+    build: .
+    volumes:
+      - .:/app # Take . folder from my local and make accesibe inside /app in container
 
+  viewer:
+    image: nginx:alpine
+    volumes:
+      - ./viewer:/usr/share/nginx/viewer:ro      # index.html lives here
+      - ./output:/usr/share/nginx/output:ro      # processor writes report.csv here also
+      - ./viewer.conf:/etc/nginx/conf.d/default.conf:ro # nginx config here also
+    ports:
+      - "8080:80" # map port from my machine to nginx server
+*/
+/*
+    - Docker Compose is used to run multiple containers and handle communication between these containers.
+    - To run: docker compose up
+    -  We have two containers: processor and viewer.
+*/
+
+
+// Processor Container
+/*
+    - Processor container: the first container Docker Compose creates using the Dockerfile (build: .).
+    -  The name of the service is processor.
+    - Here, we create a volume and make the app folder accessible inside the container.
+*/
+
+// Viewer Container
+/*
+    - We also make output and viewer accessible inside the container.
+    - Both containers access the same host folder.
+*/
+
+// When the user visits http://localhost:8080/
+/*
+    - Browser: sends an HTTP request to your computer on port 8080.
+    - Docker: forwards the request to port 80 inside the Nginx container.
+    - Nginx: reads viewer.conf to determine which file to serve.
+    - Nginx: returns index.html to your browser.
+    - Browser: displays the HTML page.
+*/
+
+
+// Docker Volume
+/*
+    - Persistent storage for sharing data
+
+    - Two Ways of dealing with volumes: Bind Mounts and Named Volumes
+    - Bind Mounts: Here we link host data with container data
+    - Docker Volume: Here we allow sharing data between containers.
 */
