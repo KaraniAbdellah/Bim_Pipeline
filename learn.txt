@@ -22,3 +22,14 @@
     - Used to Replace Text in File
     --> sed [OPTIONS] 'SCRIPT' [INPUTFILE...]
 */
+
+
+
+// Varaibles
+NAME=10
+NAME=$(LINUX_COMMAND)
+
+// Condition
+if [[ CONDITION ]]; then
+        echo "id,date,city,reason,count" >> $OUTPUT_PATH
+fi
