@@ -1,0 +1,6 @@
+services:
+  processor:
+    build: .
+    volumes:
+
+  viewer:
